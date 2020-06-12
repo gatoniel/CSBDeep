@@ -14,9 +14,9 @@ import tensorflow
 from distutils.version import LooseVersion
 _tf_version = LooseVersion(tensorflow.__version__)
 # print(_tf_version)
-if  _tf_version >= LooseVersion("2.0.0"):
-    raise ImportError("csbdeep only supports tensorflow < 2 for now (installed tensorflow version: %s)"%_tf_version)
-del tensorflow
+# if  _tf_version >= LooseVersion("2.0.0"):
+#     raise ImportError("csbdeep only supports tensorflow < 2 for now (installed tensorflow version: %s)"%_tf_version)
+# del tensorflow
 
 
 
