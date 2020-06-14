@@ -20,7 +20,7 @@ from .six import tempfile
 
 
 
-def limit_gpu_memory(fraction, allow_growth=False):
+def limit_gpu_memory(memory_limit, allow_growth=False):
     """Limit GPU memory allocation for TensorFlow (TF) backend.
 
     Parameters
@@ -42,18 +42,30 @@ def limit_gpu_memory(fraction, allow_growth=False):
     """
 
     is_tf_backend() or _raise(NotImplementedError('Not using tensorflow backend.'))
-    fraction is None or (np.isscalar(fraction) and 0<=fraction<=1) or _raise(ValueError('fraction must be between 0 and 1.'))
+    memory_limit is None or (np.isscalar(memory_limit) and 0<=memory_limit) or _raise(ValueError('fraction must be between 0 and 1.'))
 
-    if K.tensorflow_backend._SESSION is None:
-        config = tf.compat.v1.ConfigProto()
-        if fraction is not None:
-            config.gpu_options.per_process_gpu_memory_fraction = fraction
-        config.gpu_options.allow_growth = bool(allow_growth)
-        session = tf.compat.v1.Session(config=config)
-        K.tensorflow_backend.set_session(session)
-        # print("[tf_limit]\t setting config.gpu_options.per_process_gpu_memory_fraction to ",config.gpu_options.per_process_gpu_memory_fraction)
-    else:
-        warnings.warn('Too late to limit GPU memory, can only be done once and before any computation.')
+    # I think in tf 2.0 we can ignore this test
+    # if K.tensorflow_backend._SESSION is None:
+    #     config = tf.compat.v1.ConfigProto()
+    #     if fraction is not None:
+    #         config.gpu_options.per_process_gpu_memory_fraction = fraction
+    #     config.gpu_options.allow_growth = bool(allow_growth)
+    #     session = tf.compat.v1.Session(config=config)
+    #     K.tensorflow_backend.set_session(session)
+    #     # print("[tf_limit]\t setting config.gpu_options.per_process_gpu_memory_fraction to ",config.gpu_options.per_process_gpu_memory_fraction)
+    # else:
+    #     warnings.warn('Too late to limit GPU memory, can only be done once and before any computation.')
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+    if gpus:
+       try:
+           for gpu in gpus:
+               tf.config.experimental.set_memory_growth(gpu, allow_growth)
+               tf.config.experimental.set_virtual_device_configuration(
+                   gpu, [tf.config.experimental.VirtualDeviceConfiguration(
+                       memory_limit=memory_limit
+                   )])
+       except RuntimeError as e:
+           print(e)
 
 
 
