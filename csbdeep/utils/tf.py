@@ -8,10 +8,12 @@ import shutil
 import datetime
 
 import tensorflow as tf
-import keras
-from keras import backend as K
-from keras.callbacks import Callback
-from keras.layers import Lambda
+
+from tensorflow import keras
+import tensorflow_probability as tfp
+from tensorflow.keras import backend as K
+from tensorflow.keras.callbacks import Callback
+from tensorflow.keras.layers import Lambda
 
 from .utils import _raise, is_tf_backend, save_json, backend_channels_last
 from .six import tempfile
@@ -43,11 +45,11 @@ def limit_gpu_memory(fraction, allow_growth=False):
     fraction is None or (np.isscalar(fraction) and 0<=fraction<=1) or _raise(ValueError('fraction must be between 0 and 1.'))
 
     if K.tensorflow_backend._SESSION is None:
-        config = tf.ConfigProto()
+        config = tf.compat.v1.ConfigProto()
         if fraction is not None:
             config.gpu_options.per_process_gpu_memory_fraction = fraction
         config.gpu_options.allow_growth = bool(allow_growth)
-        session = tf.Session(config=config)
+        session = tf.compat.v1.Session(config=config)
         K.tensorflow_backend.set_session(session)
         # print("[tf_limit]\t setting config.gpu_options.per_process_gpu_memory_fraction to ",config.gpu_options.per_process_gpu_memory_fraction)
     else:
@@ -85,14 +87,14 @@ def export_SavedModel(model, outpath, meta={}, format='zip'):
     def export_to_dir(dirname):
         if len(model.inputs) > 1 or len(model.outputs) > 1:
             warnings.warn('Found multiple input or output layers.')
-        builder = tf.saved_model.builder.SavedModelBuilder(dirname)
+        builder = tf.compat.v1.saved_model.builder.SavedModelBuilder(dirname)
         # use name 'input'/'output' if there's just a single input/output layer
         inputs  = dict(zip(model.input_names,model.inputs))   if len(model.inputs)  > 1 else dict(input=model.input)
         outputs = dict(zip(model.output_names,model.outputs)) if len(model.outputs) > 1 else dict(output=model.output)
-        signature = tf.saved_model.signature_def_utils.predict_signature_def(inputs=inputs, outputs=outputs)
-        signature_def_map = { tf.saved_model.signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY: signature }
-        builder.add_meta_graph_and_variables(K.get_session(),
-                                             [tf.saved_model.tag_constants.SERVING],
+        signature = tf.compat.v1.saved_model.signature_def_utils.predict_signature_def(inputs=inputs, outputs=outputs)
+        signature_def_map = { tf.saved_model.DEFAULT_SERVING_SIGNATURE_DEF_KEY: signature }
+        builder.add_meta_graph_and_variables(tf.compat.v1.Session(graph=tf.Graph()),
+                                             [tf.saved_model.SERVING],
                                              signature_def_map=signature_def_map)
         builder.save()
         if meta is not None and len(meta) > 0:
@@ -121,8 +123,8 @@ def export_SavedModel(model, outpath, meta={}, format='zip'):
 
 def tf_normalize(x, pmin=1, pmax=99.8, axis=None, clip=False):
     assert pmin < pmax
-    mi = tf.contrib.distributions.percentile(x,pmin, axis=axis, keep_dims=True)
-    ma = tf.contrib.distributions.percentile(x,pmax, axis=axis, keep_dims=True)
+    mi = tfp.stats.percentile(x, pmin, axis=axis, keepdims=True)
+    ma = tfp.stats.percentile(x, pmax, axis=axis, keepdims=True)
     y = (x-mi)/(ma-mi+K.epsilon())
     if clip:
         y = K.clip(y,0,1.0)
@@ -192,16 +194,16 @@ class CARETensorBoard(Callback):
 
     def set_model(self, model):
         self.model = model
-        self.sess = K.get_session()
+        self.sess = tf.compat.v1.Session()
         tf_sums = []
 
         if self.compute_histograms and self.freq and self.merged is None:
             for layer in self.model.layers:
                 for weight in layer.weights:
-                    tf_sums.append(tf.summary.histogram(weight.name, weight))
+                    tf_sums.append(tf.compat.v1.summary.histogram(weight.name, weight))
 
                 if hasattr(layer, 'output'):
-                    tf_sums.append(tf.summary.histogram('{}_out'.format(layer.name),
+                    tf_sums.append(tf.compat.v1.summary.histogram('{}_out'.format(layer.name),
                                                         layer.output))
 
 
@@ -236,7 +238,7 @@ class CARETensorBoard(Callback):
             # print('input', self.model.inputs[i], tuple(sl))
             layer_name = _name('net_input', self.model.inputs[i], i, n_inputs)
             input_layer = tf_normalize_layer(self.model.inputs[i][tuple(sl)])
-            tf_sums.append(tf.summary.image(layer_name, input_layer, max_outputs=self.n_images))
+            tf_sums.append(tf.compat.v1.summary.image(layer_name, input_layer, max_outputs=self.n_images))
 
         # outputs
         for i,sl in zip(image_for_outputs,output_slices):
@@ -245,7 +247,7 @@ class CARETensorBoard(Callback):
             # target
             output_layer = tf_normalize_layer(self.gt_outputs[i][tuple(sl)])
             layer_name = _name('net_target', self.model.outputs[i], i, n_outputs)
-            tf_sums.append(tf.summary.image(layer_name, output_layer, max_outputs=self.n_images))
+            tf_sums.append(tf.compat.v1.summary.image(layer_name, output_layer, max_outputs=self.n_images))
             # prediction
             n_channels_out = sep = output_shape[-1]
             if self.prob_out: # first half of output channels is mean, second half scale
@@ -256,22 +258,22 @@ class CARETensorBoard(Callback):
                 scale_layer = tf_normalize_layer(self.model.outputs[i][...,sep:][tuple(sl)], pmin=0, pmax=100)
                 mean_name  = _name('net_output_mean',  self.model.outputs[i], i, n_outputs)
                 scale_name = _name('net_output_scale', self.model.outputs[i], i, n_outputs)
-                tf_sums.append(tf.summary.image(mean_name, output_layer, max_outputs=self.n_images))
-                tf_sums.append(tf.summary.image(scale_name, scale_layer, max_outputs=self.n_images))
+                tf_sums.append(tf.compat.v1.summary.image(mean_name, output_layer, max_outputs=self.n_images))
+                tf_sums.append(tf.compat.v1.summary.image(scale_name, scale_layer, max_outputs=self.n_images))
             else:
                 layer_name = _name('net_output', self.model.outputs[i], i, n_outputs)
-                tf_sums.append(tf.summary.image(layer_name, output_layer, max_outputs=self.n_images))
+                tf_sums.append(tf.compat.v1.summary.image(layer_name, output_layer, max_outputs=self.n_images))
 
 
-        with tf.name_scope('merged'):
-            self.merged = tf.summary.merge(tf_sums)
+        with tf.compat.v1.name_scope('merged'):
+            self.merged = tf.compat.v1.summary.merge(tf_sums)
 
-        with tf.name_scope('summary_writer'):
+        with tf.compat.v1.name_scope('summary_writer'):
             if self.write_graph:
-                self.writer = tf.summary.FileWriter(self.log_dir,
+                self.writer = tf.compat.v1.summary.FileWriter(self.log_dir,
                                                     self.sess.graph)
             else:
-                self.writer = tf.summary.FileWriter(self.log_dir)
+                self.writer = tf.compat.v1.summary.FileWriter(self.log_dir)
 
     def on_epoch_end(self, epoch, logs=None):
         logs = logs or {}
@@ -299,7 +301,7 @@ class CARETensorBoard(Callback):
         for name, value in logs.items():
             if name in ['batch', 'size']:
                 continue
-            summary = tf.Summary()
+            summary = tf.compat.v1.Summary()
             summary_value = summary.value.add()
             summary_value.simple_value = float(value)
             summary_value.tag = name

@@ -7,9 +7,11 @@ from ..internals.losses import loss_laplace, loss_mse, loss_mae, loss_thresh_wei
 import numpy as np
 
 
-import keras.backend as K
-from keras.callbacks import Callback, TerminateOnNaN
-from keras.utils import Sequence
+import tensorflow as tf
+from tensorflow import keras
+import tensorflow.keras.backend as K
+from tensorflow.keras.callbacks import Callback, TerminateOnNaN
+from tensorflow.keras.utils import Sequence
 
 
 class ParameterDecayCallback(Callback):

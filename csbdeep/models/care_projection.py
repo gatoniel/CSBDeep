@@ -3,11 +3,13 @@ from __future__ import print_function, unicode_literals, absolute_import, divisi
 
 import numpy as np
 from collections import namedtuple
-import keras.backend as K
-from keras.models import Model
-from keras.layers import Input, Conv3D, MaxPooling3D, UpSampling3D, Lambda
-from keras.layers.merge import Multiply
-from keras.activations import softmax
+import tensorflow as tf
+from tensorflow import keras
+import tensorflow.keras.backend as K
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Input, Conv3D, MaxPooling3D, UpSampling3D
+from tensorflow.keras.layers import Multiply, Lambda
+from tensorflow.keras.activations import softmax
 
 from .care_standard import CARE
 from .config import Config

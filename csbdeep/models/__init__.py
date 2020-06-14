@@ -1,4 +1,5 @@
 from __future__ import absolute_import, print_function
+import warnings
 
 # checks
 try:
@@ -10,18 +11,19 @@ except ModuleNotFoundError as e:
 
 
 # for now, tensorflow >= 2.0 is not supported
-import tensorflow
+import tensorflow as tf
 from distutils.version import LooseVersion
-_tf_version = LooseVersion(tensorflow.__version__)
+_tf_version = LooseVersion(tf.__version__)
 # print(_tf_version)
-# if  _tf_version >= LooseVersion("2.0.0"):
-#     raise ImportError("csbdeep only supports tensorflow < 2 for now (installed tensorflow version: %s)"%_tf_version)
-# del tensorflow
+if  _tf_version >= LooseVersion("2.0.0"):
+    tf.compat.v1.disable_v2_behavior()
+    warnings.warn("csbdeep only supports tensorflow 1 behavior for now. We disable v2 behavior (installed tensorflow version: %s)" % _tf_version)
+del tf
 
 
 
 try:
-    import keras
+    from tensorflow import keras
     del keras
 except ModuleNotFoundError as e:
     if e.name in {'theano','cntk'}:
@@ -34,7 +36,7 @@ except ModuleNotFoundError as e:
     else:
         raise e
 
-import keras.backend as K
+from tensorflow.keras import backend as K
 if K.backend() != 'tensorflow':
     raise NotImplementedError(
             "Keras is configured to use the '%s' backend, which is currently not supported. "

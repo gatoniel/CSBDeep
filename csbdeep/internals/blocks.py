@@ -3,11 +3,14 @@ from six.moves import range, zip, map, reduce, filter
 
 from ..utils import _raise, backend_channels_last
 
-import keras.backend as K
-from keras.layers import Dropout, Activation, BatchNormalization
-from keras.layers import Conv2D, MaxPooling2D, UpSampling2D, Conv3D, MaxPooling3D, UpSampling3D
-from keras.layers.merge import Concatenate, Add
+import tensorflow as tf
+from tensorflow import keras
 
+from tensorflow.keras import backend as K
+from tensorflow.keras.layers import Dropout, Activation, BatchNormalization
+from tensorflow.keras.layers import Add, Concatenate
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, UpSampling2D
+from tensorflow.keras.layers import Conv3D, MaxPooling3D, UpSampling3D
 
 
 def conv_block2(n_filter, n1, n2,
